@@ -1,0 +1,5 @@
+textual
+nltk
+spacy
+openai
+requests
