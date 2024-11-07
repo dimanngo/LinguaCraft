@@ -24,8 +24,8 @@ class WordItem(ListItem):
     def toggle_status(self):
         """Toggle the word's known/unknown status and update display."""
         self.is_known = not self.is_known
-        status = "Known__" if self.is_known else "Unknown111"
-        color = "green" if self.is_known else "red"
+        status = "Known" if self.is_known else "Unknown"
+        color = "grey" if self.is_known else "red"
         self.label.update(f"{self.word} ({status})")
         self.label.styles.color = color  # Change color based on status
 
@@ -124,24 +124,22 @@ class LinguaLearnApp(App):
             # Get the currently selected word item
             current_item = self.word_items[self.selected_index]
 
-            # Handle 'K' and 'U' keys to toggle known/unknown status
+            # Call `toggle_status` based on the key pressed
             if event.key == "k":
-                current_item.is_known = True
-                current_item.label.update(f"{current_item.word} (Known)")
-                if current_item.word not in self.new_known_words:
-                    self.new_known_words.append(current_item.word)
+                if not current_item.is_known:
+                    current_item.toggle_status()
 
             elif event.key == "u":
-                current_item.is_known = False
-                current_item.label.update(f"{current_item.word} (Unknown)")
-                if current_item.word in self.new_known_words:
-                    self.new_known_words.remove(current_item.word)
+                if current_item.is_known:
+                    current_item.toggle_status()
 
             # Finalize list and process on Enter key
             elif event.key == "enter":
-                # Update known words file once with the accumulated known words
-                if self.new_known_words:
-                    update_known_words(self.new_known_words)
+                # Collect known words to update
+                known_words_to_update = [item.word for item in self.word_items if item.is_known]
+                if known_words_to_update:
+                    update_known_words(known_words_to_update)
+                
                 await self.finalize_and_translate()
 
     async def finalize_and_translate(self):
