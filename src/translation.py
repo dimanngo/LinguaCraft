@@ -81,9 +81,16 @@ def save_translations_to_file(translations, filename="output.txt"):
         translations (dict): Dictionary with words, their definitions, and translations.
         filename (str): The file name for saving the output.
     """
+    # Build the content string all at once
+    content = []
+    for word, info in translations.items():
+        content.append(f"Word: {word}")
+        content.append(f"Definition: {info['definition']}")
+        content.append(f"Translation: {info['translation']}\n")
+    content_str = "\n".join(content)
+
+    # Write the content to the file in a single operation
     with open(filename, "w", encoding="utf-8") as file:
-        for word, info in translations.items():
-            file.write(f"Word: {word}\n")
-            file.write(f"Definition: {info['definition']}\n")
-            file.write(f"Translation: {info['translation']}\n\n")
+        file.write(content_str)
+    
     print(f"Translations saved to {filename}")
