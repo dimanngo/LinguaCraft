@@ -1,7 +1,7 @@
 from textual.app import App
 from textual.widgets import Header, Footer, Input, Button, Static, Label, ListView, ListItem
+from textual.containers import Container, Vertical, Horizontal
 from textual.reactive import reactive
-from textual.containers import Container, Horizontal
 from textual.events import Key
 
 from text_processing import process_text  # Custom file with text processing functions
@@ -15,6 +15,7 @@ class WordItem(ListItem):
         self.word = word
         self.is_known = False  # Default status is unknown
         self.label = Static(f"{self.word} (Unknown)")
+        self.label.styles.color = "red"  # Set initial color for "Unknown" status
 
     async def on_mount(self):
         """Mount the label after WordItem itself is mounted."""
@@ -23,7 +24,10 @@ class WordItem(ListItem):
     def toggle_status(self):
         """Toggle the word's known/unknown status and update display."""
         self.is_known = not self.is_known
-        self.label.update(f"{self.word} ({'Known' if self.is_known else 'Unknown'})")
+        status = "Known__" if self.is_known else "Unknown111"
+        color = "green" if self.is_known else "red"
+        self.label.update(f"{self.word} ({status})")
+        self.label.styles.color = color  # Change color based on status
 
 class LinguaLearnApp(App):
     selected_file = reactive("")
@@ -38,28 +42,38 @@ class LinguaLearnApp(App):
         await self.mount(Header())
         await self.mount(Footer())
 
-        # Input fields for file path and language
+        # Input fields for file path and language with labels
+        file_input_label = Label("File path:")
         self.file_input = Input(placeholder="Enter file path here", id="file_input")
+        
+        lang_input_label = Label("Native language code:")
         self.lang_input = Input(placeholder="Default is 'en'", id="lang_input")
+        
+        # Run Analysis button
         self.run_button = Button(label="Run Analysis", id="run_button")
 
-        # Set up input containers and add to layout
-        input_container = Container(
-            Label("Select a file with text to process:"),
-            self.file_input,
-            Label("Enter your native language (e.g., 'en', 'es'):"),
-            self.lang_input,
+        # Group inputs and button vertically with clear labels
+        input_container = Vertical(
+            Horizontal(file_input_label, self.file_input),
+            Horizontal(lang_input_label, self.lang_input),
             self.run_button,
+            classes="input-container",
         )
 
-        
-        # button_container = Container(self.run_button)
-        
-        self.output_widget = Static("", id="output_message")
+        # Output status widget
+        # self.output_widget = Static("", id="output_message")
+        self.output_widget = Static("", classes="output-widget")
         output_container = Container(self.output_widget)
 
-        # Mount all containers in the main app
-        await self.mount(Horizontal(input_container, output_container))
+        # Layout containers for organization
+        layout = Vertical(
+            input_container,
+            Label("Analysis Output", classes="section-label"),
+            output_container,
+            classes="main-layout",
+        )
+
+        await self.mount(layout)
 
     async def on_button_pressed(self, event):
         """Handle button click events."""
@@ -91,9 +105,9 @@ class LinguaLearnApp(App):
         # Generate WordItem objects for each unknown word
         self.word_items = [WordItem(word) for word in unknown_words]
         
-        # Display the word list for classification
-        self.word_list_view = ListView(*self.word_items)
-        await self.mount(self.word_list_view)
+        # Display the word list for classification with clear labels
+        self.word_list_view = ListView(*self.word_items, classes="word-list-view")
+        await self.mount(Vertical(Label("Classify Words"), self.word_list_view))
         self.set_focus(self.word_list_view)  # Set focus to the word list view initially
         self.output_widget.update("Navigate the list with up/down arrow keys.\nUse K and U keys to toggle known/unknown status.\nPress <ENTER> when you finish.")
 
