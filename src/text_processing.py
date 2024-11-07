@@ -60,7 +60,12 @@ def normalize_words(tokens):
     for word in tokens:
         if word not in STOP_WORDS:  # Optional stopword filtering
             doc = nlp(word)
-            lemmatized_words.extend([token.lemma_ for token in doc])
+            for token in doc:
+                lemma = token.lemma_
+                # Add 'to' only if the token is identified as a verb in infinitive form
+                if token.pos_ == "VERB":
+                    lemma = f"to {lemma}"
+                lemmatized_words.append(lemma)
     return lemmatized_words
 
 def deduplicate_words(words):
