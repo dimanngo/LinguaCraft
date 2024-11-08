@@ -1,12 +1,41 @@
+# Import necessary modules from Textual library
 from textual.app import App
 from textual.widgets import Header, Footer, Input, Button, Static, Label, ListView, ListItem
 from textual.containers import Container, Vertical, Horizontal
 from textual.reactive import reactive
 from textual.events import Key
 
+# Import necessary modules from Textual library for screen management
+from textual import on, work
+from textual.app import App, ComposeResult
+from textual.screen import Screen
+from textual.widgets import Button, Label
+
+class QuestionScreen(Screen[bool]):
+    """Screen with a parameter."""
+
+    def __init__(self, question: str) -> None:
+        self.question = question
+        super().__init__()
+
+    def compose(self) -> ComposeResult:
+        yield Label(self.question)
+        yield Button("Yes", id="yes", variant="success")
+        yield Button("No", id="no")
+
+    @on(Button.Pressed, "#yes")
+    def handle_yes(self) -> None:
+        self.dismiss(True)  
+
+    @on(Button.Pressed, "#no")
+    def handle_no(self) -> None:
+        self.dismiss(False)
+
+# Import custom modules for text processing, known words management, and translation
 from text_processing import process_text  # Custom file with text processing functions
-from known_words import load_known_words, update_known_words  # Manages known words persistence
-from translation import fetch_translation  # Manages API calls for translations
+from known_words import load_known_words, update_known_words # Manages known words persistence
+# from translation import fetch_translation  # Manages API calls for translations
+from translation_bulk import fetch_definitions  # Manages Open API calls for definitions and translations 
 
 class WordItem(ListItem):
     """Custom list item to represent a word with its known/unknown status."""
@@ -30,8 +59,6 @@ class WordItem(ListItem):
         self.label.styles.color = color  # Change color based on status
 
 class LinguaLearnApp(App):
-    selected_file = reactive("")
-    native_language = reactive("en")
     word_items = reactive([])  # List of WordItem objects
     selected_index = reactive(0)  # Index of the currently selected word item
     new_known_words = reactive([])  # Track newly marked known words
@@ -87,7 +114,6 @@ class LinguaLearnApp(App):
         self.run_button.disabled = True
 
         selected_file = self.file_input.value.strip()
-        native_language = self.lang_input.value.strip() or "en"
 
         # Output message to show progress
         self.output_widget.update("Loading words for classification...")
@@ -140,18 +166,32 @@ class LinguaLearnApp(App):
                 if known_words_to_update:
                     update_known_words(known_words_to_update)
                 
-                await self.finalize_and_translate()
-
+                self.finalize_and_translate()
+    
+    @work
     async def finalize_and_translate(self):
         """Finalize word classification and proceed with translation."""
+
+        native_language = self.lang_input.value.strip() or "en"
         unknown_words = [item.word for item in self.word_items if not item.is_known]
 
         # Fetch translations and definitions for unknown words
         self.output_widget.update("Fetching translations and definitions...")
-        fetch_translation(unknown_words, self.native_language)
+        ############ fetch_definitions(unknown_words, native_language)
 
         # Display completion message
         self.output_widget.update("Analysis complete! Check output.txt for results.")
+
+        # Show modal window with question: "Would you like to add all the unknown words to the known words list?"
+        # If yes, add all unknown words to known words list file and save it (call update_known_words(unknown_words))
+        # If no, do nothing
+        if await self.push_screen_wait(  
+            QuestionScreen("Would you like to add all the unknown words to the known words list?"),
+        ):
+            update_known_words(unknown_words)
+            self.notify("Good answer!")
+        else:
+            self.notify(":-(", severity="error")
         
         # Remove the word list view after finalizing
         await self.word_list_view.remove()

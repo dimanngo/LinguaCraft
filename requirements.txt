@@ -1,5 +1,6 @@
-textual
 nltk
-spacy
 openai
+python-dotenv
 requests
+spacy
+textual

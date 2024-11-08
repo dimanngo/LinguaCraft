@@ -1,4 +1,4 @@
-import openai
+from openai import OpenAI
 import requests
 import os
 
@@ -7,7 +7,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GOOGLE_TRANSLATE_API_KEY = os.getenv("GOOGLE_TRANSLATE_API_KEY")
 
 # Configure OpenAI API
-openai.api_key = OPENAI_API_KEY
+OpenAI.api_key = OPENAI_API_KEY
 
 def get_definition(word):
     """
@@ -19,13 +19,17 @@ def get_definition(word):
     """
     prompt = f"Provide a clear, concise dictionary definition for the word '{word}'."
     try:
-        response = openai.Completion.create(
-            engine="text-davinci-003",
-            prompt=prompt,
-            max_tokens=50,
-            temperature=0.5,
+        client = OpenAI()
+        completion = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
         )
-        return response.choices[0].text.strip()
+        return completion.choices[0].message.content.strip()
     except Exception as e:
         print(f"Error fetching definition for '{word}': {e}")
         return "Definition not available"
