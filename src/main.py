@@ -2,7 +2,7 @@
 from textual.app import App
 from textual.widgets import Header, Footer, Input, Button, Static, Label, ListView, ListItem
 from textual.containers import Container, Vertical, Horizontal
-from textual.reactive import reactive
+from textual.reactive import Reactive
 from textual.events import Key
 
 # Import necessary modules from Textual library for screen management
@@ -59,9 +59,19 @@ class WordItem(ListItem):
         self.label.styles.color = color  # Change color based on status
 
 class LinguaLearnApp(App):
-    word_items = reactive([])  # List of WordItem objects
-    selected_index = reactive(0)  # Index of the currently selected word item
-    new_known_words = reactive([])  # Track newly marked known words
+    CSS = """
+    Screen {
+        align: center middle;
+    }
+    InputWithLabel {
+        width: 80%;
+        margin: 1;
+    }
+    """
+
+    word_items = Reactive([])  # List of WordItem objects
+    selected_index = Reactive(0)  # Index of the currently selected word item
+    new_known_words = Reactive([])  # Track newly marked known words
 
     async def on_mount(self):
         """Set up the main UI components."""
@@ -88,7 +98,6 @@ class LinguaLearnApp(App):
         )
 
         # Output status widget
-        # self.output_widget = Static("", id="output_message")
         self.output_widget = Static("", classes="output-widget")
         output_container = Container(self.output_widget)
 
@@ -176,10 +185,12 @@ class LinguaLearnApp(App):
         unknown_words = [item.word for item in self.word_items if not item.is_known]
 
         # Fetch translations and definitions for unknown words
+        self.notify("Fetching translations and definitions...")
         self.output_widget.update("Fetching translations and definitions...")
         ############ fetch_definitions(unknown_words, native_language)
 
         # Display completion message
+        self.notify("Analysis complete! Check output.txt for results.")
         self.output_widget.update("Analysis complete! Check output.txt for results.")
 
         # Show modal window with question: "Would you like to add all the unknown words to the known words list?"
@@ -189,9 +200,9 @@ class LinguaLearnApp(App):
             QuestionScreen("Would you like to add all the unknown words to the known words list?"),
         ):
             update_known_words(unknown_words)
-            self.notify("Good answer!")
+            self.notify("All unknown words added to known words list.", severity="information")
         else:
-            self.notify(":-(", severity="error")
+            self.notify("Unknown words not added to known words list.", severity="warning")
         
         # Remove the word list view after finalizing
         await self.word_list_view.remove()
