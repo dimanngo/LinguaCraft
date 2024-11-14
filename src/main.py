@@ -1,15 +1,130 @@
 # Import necessary modules from Textual library
 from textual.app import App
 from textual.widgets import Header, Footer, Input, Button, Static, Label, ListView, ListItem
+from textual.widget import Widget
 from textual.containers import Container, Vertical, Horizontal
-from textual.reactive import Reactive
+from textual.screen import Screen
+from textual.reactive import reactive
 from textual.events import Key
+
+# Import necessary modules for Welcome Screen
+from rich.markdown import Markdown
+from textual.app import ComposeResult
+from textual.containers import Container
+from textual.widgets._button import Button
+from textual.widgets._static import Static
 
 # Import necessary modules from Textual library for screen management
 from textual import on, work
 from textual.app import App, ComposeResult
-from textual.screen import Screen
 from textual.widgets import Button, Label
+
+# Screen 1: Welcome Screen
+class WelcomeScreen(Screen):
+    WELCOME_MD = """\
+# Welcome!
+
+Textual is a TUI, or *Text User Interface*, framework for Python inspired by modern web development. **We hope you enjoy using Textual!**
+
+## Dune quote
+
+> "I must not fear.
+Fear is the mind-killer.
+Fear is the little-death that brings total obliteration.
+I will face my fear.
+I will permit it to pass over me and through me.
+And when it has gone past, I will turn the inner eye to see its path.
+Where the fear has gone there will be nothing. Only I will remain."
+"""
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        yield Container(Static(Markdown(self.WELCOME_MD), id="text"), id="md")
+        yield Button("Next", id="next_button", variant="primary")
+        yield Footer()
+
+    async def on_button_pressed(self, event):
+        if event.button.id == "next_button":
+            await self.app.push_screen(InputScreen())
+
+# Screen 2: Input Screen
+class InputScreen(Screen):
+    def compose(self) -> ComposeResult:
+        yield Header()
+
+        # Input fields and labels
+        yield Container(
+            InputWithLabel("File path:", "Enter file path here", "file_input"),
+            InputWithLabel("Native language code:", "Default is 'ua'", "lang_input")
+        )
+
+        yield Button("Run Analysis", id="run_analysis_button", variant="primary")
+        
+        yield Footer()
+
+    async def on_button_pressed(self, event):
+        if event.button.id == "run_analysis_button":
+            await self.app.run_analysis()
+
+# Screen 3: Word List Screen
+class WordListScreen(Screen):
+    selected_index = reactive(0)
+
+    def __init__(self, word_items):
+        super().__init__()
+        self.word_items = word_items
+
+    def compose(self):
+        yield Header()
+        yield Label("Unknown Words for Classification:")
+        self.word_list_view = ListView(*self.word_items)
+        yield self.word_list_view
+        yield Footer()
+
+    # @on(Key, "up")
+    # def handle_up(self) -> None:
+    #     pass
+
+    async def on_key(self, event: Key):
+        """Handle key presses for marking words and finalizing the list."""
+        # Ensure key handling only occurs if word_list_view exists and is focused
+        if hasattr(self, "word_list_view") and self.focused is self.word_list_view:
+            # Navigate the list with up/down arrow keys
+            if event.key == "up":
+                self.selected_index = max(0, self.selected_index - 1)
+            elif event.key == "down":
+                self.selected_index = min(len(self.word_items) - 1, self.selected_index + 1)
+
+            # Get the currently selected word item
+            current_item = self.word_items[self.selected_index]
+
+            # Toggle status for known and unknown words
+            if event.key == "k":
+                if not current_item.is_known:
+                    current_item.toggle_status()
+            elif event.key == "u":
+                if current_item.is_known:
+                    current_item.toggle_status()
+
+            # Finalize list and process on Enter key
+            elif event.key == "enter":
+                known_words_to_update = [item.word for item in self.word_items if item.is_known]
+                if known_words_to_update:
+                    update_known_words(known_words_to_update)
+                await self.app.finalize_and_translate()
+
+class InputWithLabel(Widget):
+    """An input with a label."""
+
+    def __init__(self, input_label: str, input_placeholder: str, input_id: str) -> None:
+        self.input_label = input_label
+        self.input_placeholder = input_placeholder
+        self.input_id = input_id
+        super().__init__()
+
+    def compose(self) -> ComposeResult:  
+        yield Label(self.input_label)
+        yield Input(placeholder=self.input_placeholder, id=self.input_id)
 
 class QuestionScreen(Screen[bool]):
     """Screen with a parameter."""
@@ -59,126 +174,54 @@ class WordItem(ListItem):
         self.label.styles.color = color  # Change color based on status
 
 class LinguaLearnApp(App):
-    CSS = """
-    Screen {
-        align: center middle;
-    }
-    InputWithLabel {
-        width: 80%;
-        margin: 1;
-    }
-    """
+    CSS_PATH = "styles.tcss"  # Path to custom CSS file
+    TITLE = "A Lingua Learn App"
+    SUB_TITLE = "knows what you don't know"
 
-    word_items = Reactive([])  # List of WordItem objects
-    selected_index = Reactive(0)  # Index of the currently selected word item
-    new_known_words = Reactive([])  # Track newly marked known words
+    word_items = reactive([])
 
     async def on_mount(self):
-        """Set up the main UI components."""
-        # Add header and footer
-        await self.mount(Header())
-        await self.mount(Footer())
+        await self.push_screen(WelcomeScreen())  # Start with WelcomeScreen
 
-        # Input fields for file path and language with labels
-        file_input_label = Label("File path:")
-        self.file_input = Input(placeholder="Enter file path here", id="file_input")
-        
-        lang_input_label = Label("Native language code:")
-        self.lang_input = Input(placeholder="Default is 'en'", id="lang_input")
-        
-        # Run Analysis button
-        self.run_button = Button(label="Run Analysis", id="run_button")
-
-        # Group inputs and button vertically with clear labels
-        input_container = Vertical(
-            Horizontal(file_input_label, self.file_input),
-            Horizontal(lang_input_label, self.lang_input),
-            self.run_button,
-            classes="input-container",
-        )
-
-        # Output status widget
-        self.output_widget = Static("", classes="output-widget")
-        output_container = Container(self.output_widget)
-
-        # Layout containers for organization
-        layout = Vertical(
-            input_container,
-            Label("Analysis Output", classes="section-label"),
-            output_container,
-            classes="main-layout",
-        )
-
-        await self.mount(layout)
-
-    async def on_button_pressed(self, event):
-        """Handle button click events."""
-        # Ensure the button ID matches our Run Analysis button and check the flag
-        if event.button.id == "run_button" and not event.button.disabled:
-            await self.run_analysis()
+    def on_key(self, event: Key):
+        self.title = event.key
+        self.sub_title = f"You just pressed {event.key}!"
 
     async def run_analysis(self):
-        """Process text, generate word items list, and display interactive classification."""
-        # Disable the button to prevent multiple executions
-        self.run_button.disabled = True
-
-        selected_file = self.file_input.value.strip()
-
-        # Output message to show progress
-        self.output_widget.update("Loading words for classification...")
+        """Run the analysis and proceed to WordListScreen."""
+        # Retrieve input values using query_one
+        file_input = self.query_one("#file_input", Input)
+        lang_input = self.query_one("#lang_input", Input)
+        selected_file = file_input.value.strip()
+        native_language = lang_input.value.strip() or "ua"
 
         # Load known words and process input text
         known_words = load_known_words()
         if not selected_file:
-            self.output_widget.update("Please enter a valid file path.")
-            self.run_button.disabled = False  # Re-enable the button on error
+            print("Please enter a valid file path.")
             return
 
-        # Process text and get unknown words
         unknown_words = process_text(selected_file, known_words)
-
+        
         # Generate WordItem objects for each unknown word
         self.word_items = [WordItem(word) for word in unknown_words]
         
-        # Display the word list for classification with clear labels
-        self.word_list_view = ListView(*self.word_items, classes="word-list-view")
-        await self.mount(Vertical(Label("Classify Words"), self.word_list_view))
-        self.set_focus(self.word_list_view)  # Set focus to the word list view initially
-        self.output_widget.update("Navigate the list with up/down arrow keys.\nUse K and U keys to toggle known/unknown status.\nPress <ENTER> when you finish.")
-
-    async def on_key(self, event: Key):
-        """Handle key presses for marking words and finalizing the list."""
-        # Ensure key handling only occurs if word_list_view exists and is focused
-        if hasattr(self, "word_list_view") and self.focused is self.word_list_view:
-            # Navigate the list with up/down arrow keys
-            if event.key == "up":
-                self.selected_index = max(0, self.selected_index - 1)
-            elif event.key == "down":
-                self.selected_index = min(len(self.word_items) - 1, self.selected_index + 1)
-
-            # Get the currently selected word item
-            current_item = self.word_items[self.selected_index]
-
-            # Call `toggle_status` based on the key pressed
-            if event.key == "k":
-                if not current_item.is_known:
-                    current_item.toggle_status()
-
-            elif event.key == "u":
-                if current_item.is_known:
-                    current_item.toggle_status()
-
-            # Finalize list and process on Enter key
-            elif event.key == "enter":
-                # Collect known words to update
-                known_words_to_update = [item.word for item in self.word_items if item.is_known]
-                if known_words_to_update:
-                    update_known_words(known_words_to_update)
-                
-                self.finalize_and_translate()
+        # Transition to WordListScreen
+        await self.push_screen(WordListScreen(self.word_items))
     
-    @work
     async def finalize_and_translate(self):
+        """Finalize word classification and proceed with translation."""
+        unknown_words = [item.word for item in self.word_items if not item.is_known]
+        
+        # Fetch translations and definitions for unknown words
+        ####### fetch_translation(unknown_words, "ua")
+        
+        # Display completion message
+        print("Analysis complete! Check output.txt for results.")
+        await self.pop_screen()  # Return to the previous screen after completion
+
+    @work
+    async def finalize_and_translate_old(self):
         """Finalize word classification and proceed with translation."""
 
         native_language = self.lang_input.value.strip() or "en"
@@ -208,7 +251,7 @@ class LinguaLearnApp(App):
         await self.word_list_view.remove()
 
         # Re-enable the button after the analysis is complete
-        self.run_button.disabled = False
+        self.run_analysis_button.disabled = False
 
 if __name__ == "__main__":
     LinguaLearnApp().run()
