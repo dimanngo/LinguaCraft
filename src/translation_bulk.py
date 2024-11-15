@@ -1,3 +1,4 @@
+import time
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
@@ -10,7 +11,7 @@ load_dotenv(dotenv_path=env_path)
 # Configure OpenAI API
 OpenAI.api_key = os.getenv("OPENAI_API_KEY")
 
-def fetch_definitions(unknown_words, target_language="ua"):
+def fetch_definitions_bulk(unknown_words, target_language):
     """
     Fetches definitions and translations for a list of unknown words.
     Args:
@@ -28,6 +29,11 @@ def get_definition_bulk(words, target_language):
     Returns:
         llm_response (str): The response from the OpenAI API, formatted as a list of words and their definitions.
     """
+
+    # add pause for 3 seconds
+    time.sleep(3)
+    # TODO: Temporary return random text
+    return "dummy text"
 
     prompt = f"Provide clear, concise dictionary definitions and translations into '{target_language}' for the following words:\n"
     prompt += "\n".join(words)

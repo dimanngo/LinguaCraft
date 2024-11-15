@@ -49,6 +49,9 @@ def translate_word(word, target_language):
         "target": target_language,
         "key": GOOGLE_TRANSLATE_API_KEY,
     }
+    # TODO: Tempprary return random text
+    return "dummy translation"
+    
     try:
         response = requests.get(url, params=params)
         response_data = response.json()
@@ -57,7 +60,7 @@ def translate_word(word, target_language):
         print(f"Error translating word '{word}': {e}")
         return "Translation not available"
 
-def fetch_translation(unknown_words, target_language="ua"):
+def fetch_translation(unknown_words, target_language):
     """
     Fetches definitions and translations for a list of unknown words.
     Args:

@@ -36,3 +36,10 @@ InputWithLabel Label {
 InputWithLabel Input {
     width: 2fr;
 }
+
+.instruction {
+    padding: 1;
+    border: round $panel;
+    background: $panel;
+    color: $text;
+}
