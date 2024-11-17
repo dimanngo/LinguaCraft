@@ -1,3 +1,5 @@
+# PREREQUISITE: python -m spacy download en_core_web_sm
+
 import re
 import spacy
 from nltk.corpus import stopwords

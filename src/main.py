@@ -1,52 +1,71 @@
 # Import necessary modules from Textual library
-from textual.app import App
-from textual.widgets import Header, Footer, Input, Button, Static, Label, DataTable, TextArea, Digits
-from textual.widget import Widget
-from textual.containers import Container
-from textual.screen import Screen
-from textual.reactive import reactive
-from textual import on
-from textual import work
-
-# Import necessary modules for Welcome Screen
+import asyncio
 from rich.markdown import Markdown
-from textual.app import ComposeResult
-from textual.containers import Container
+from textual import on
+from textual.app import App, ComposeResult
+from textual.containers import Container, Horizontal, Grid, Vertical
+from textual.reactive import reactive
+from textual.screen import Screen
+from textual.widget import Widget
+from textual.widgets import Header, Footer, Input, Button, Static, Label, DataTable, TextArea, Digits, LoadingIndicator
 from textual.widgets._button import Button
 from textual.widgets._static import Static
 
-# Import necessary modules from Textual library for screen management
-from textual import on, work
-from textual.app import App, ComposeResult
-from textual.widgets import Button, Label
-
 # Import custom modules for text processing, known words management, and translation
-from text_processing import process_text  # Custom file with text processing functions
 from known_words import load_known_words, update_known_words # Manages known words persistence
+from text_processing import process_text  # Custom file with text processing functions
 from translation import fetch_translation, translate_word  # Manages API calls for translations
 from translation_bulk import fetch_definitions_bulk  # Manages Open API calls for definitions and translations
+
+# constants
+DEFAULT_INPUT_FILE = "input.txt"
+DEFAULT_LANGUAGE = "ua"
+DEFAULT_OUTPUT_FILE = "output.txt"
 
 # Screen 1: Welcome Screen
 class WelcomeScreen(Screen):
     WELCOME_MD = """\
 # Welcome!
 
-Textual is a TUI, or *Text User Interface*, framework for Python inspired by modern web development. **We hope you enjoy using Textual!**
+“LinguaCraft: Use it before you read to uncover unfamiliar words effortlessly.”
 
-## Dune quote
+> "Your personalized companion for mastering foreign languages with confidence! This program helps you analyze texts, identify unfamiliar words, and prepare them for learning. With LinguaCraft, you can:
 
-> "I must not fear.
-Fear is the mind-killer.
-Fear is the little-death that brings total obliteration.
-I will face my fear.
-I will permit it to pass over me and through me.
-And when it has gone past, I will turn the inner eye to see its path.
-Where the fear has gone there will be nothing. Only I will remain."
+- Effortlessly process texts (from files or URLs) to detect unknown words.
+
+- Mark words as known or unknown, helping you focus on what truly matters.
+
+- Retrieve translations and definitions for unfamiliar terms in your preferred language.
+
+- Save result and build a growing list of known words for continuous learning.
+
+Whether you’re preparing for exams, translating documents, or simply expanding your vocabulary, LinguaCraft makes language learning efficient, organized, and enjoyable. Dive into the world of words and watch your knowledge grow!"
 """
-
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Container(Static(Markdown(self.WELCOME_MD), id="text"), id="md")
+        yield Container(
+            Grid(
+                Vertical(
+                    Static(
+                        r"""
+                [bold red]
+╦  ┬┌┐┌┌─┐┬ ┬┌─┐╔═╗┬─┐┌─┐┌─┐┌┬┐
+║  │││││ ┬│ │├─┤║  ├┬┘├─┤├┤  │ 
+╩═╝┴┘└┘└─┘└─┘┴ ┴╚═╝┴└─┴ ┴└   ┴ 
+                [/bold red]
+                        """,
+                        id="ascii_art",
+                        classes="ascii left-column",
+                    ),
+                    Static("Copyright 2024 Dmytro Golodiuk"),
+                    Static("[bold]Raise an Issue:[/] https://github.com/.../issues"),
+                    Static("[bold]Release Notes:[/] https://github.com/.../releases"),
+                    Static("[bold magenta]Become a sponsor:[/] https://github.com/sponsors/...")
+                ),
+                Static(Markdown(self.WELCOME_MD)),
+                id="welcome_grid"
+            )
+        )
         yield Button("Next", id="next_button", variant="primary")
         yield Footer()
 
@@ -54,16 +73,16 @@ Where the fear has gone there will be nothing. Only I will remain."
         if event.button.id == "next_button":
             await self.app.push_screen(InputScreen())
 
-# Screen 2: Input Screen
+# screen 2: input fields
 class InputScreen(Screen):
     def compose(self) -> ComposeResult:
         yield Header()
 
         # Input fields and labels
         yield Container(
-            InputWithLabel("File path:", "Enter file path here", "file_input"),
-            InputWithLabel("Native language code:", "Default is 'ua'", "lang_input"),
-            InputWithLabel("Output file path:", "Enter output file path here", "output_file_input")
+            InputWithLabel("File path:", f"Enter file path here, default value is '{DEFAULT_INPUT_FILE}'", "file_input"),
+            InputWithLabel("Native language code:", f"Default is '{DEFAULT_LANGUAGE}'", "lang_input"),
+            InputWithLabel("Output file path:", f"Enter output file path here, default value is '{DEFAULT_OUTPUT_FILE}'", "output_file_input")
         )
 
         yield Button("Run Analysis", id="run_analysis_button", variant="primary")
@@ -95,7 +114,7 @@ class WordItem:
         """Return the display label based on the known/unknown status."""
         return "Known" if self.is_known else "Unknown"
 
-# Screen 3 (New version with DataTable): Word List Screen
+# screen 3: word list
 class WordListScreen(Screen):
     BINDINGS = [
         ("k", "mark_known", "Mark as Known"),
@@ -123,7 +142,6 @@ class WordListScreen(Screen):
         )
         yield Button("Complete", id="complete_button", variant="success")
         yield Footer()
-
 
     def on_mount(self) -> None:
         """Set up the DataTable when the screen is mounted."""
@@ -187,8 +205,13 @@ class WordListScreen(Screen):
         # Update the "Status" cell with the new status label
         table.update_cell(row_key, col_key, word_item.display_status())
 
+# screen 4: results
 class ResultScreen(Screen):
     """Screen to show results of the analysis."""
+    BINDINGS = [
+        ("c", "copy_output", "Copy Output"),
+        ("h", "go_home", "Go Home"),
+    ]
 
     # Reactive properties to update results dynamically
     output_content = reactive("")
@@ -202,41 +225,55 @@ class ResultScreen(Screen):
         self.total_known_words_count = total_known_words_count
 
     def compose(self) -> ComposeResult:
-        """Set up the screen layout."""
-        yield Header()
-        yield Static("Fetching translations and definitions...", id="fetching_label")
-        yield Static("", id="indicator")  # Placeholder for indicator widget
+        yield LoadingIndicator(id="loader")
+        yield Label("fsdfdsfdsfsd", id="result_label")
+        yield TextArea(id="output_textarea", read_only=True)
+        yield Horizontal(
+            Label(id="new_known_label"),
+            Digits(id="new_known_digits"),
+            Label(id="total_known_label"),
+            Digits(id="total_known_digits"),
+            id="known_words_info"
+        )
         yield Footer()
 
-    async def on_mount(self):
-        """Update the screen when the translation process completes."""
-        # TODO: Simulate fetching translations (in reality, this is done in finalize_and_translate)
-        await work(self.fetch_results)
+    async def on_mount(self) -> None:
+        self.call_later(self.fetch_results)
 
     async def fetch_results(self):
-        """Fetch results and update the screen."""
-        # TODO: Placeholder for any delay or actual work
-        await self.sleep(5)  # Simulating translation process
-        # await work(self.app.finalize_and_translate())
+        """Run the obtaining of definition and translation of unknown words. Shows the results."""
+        await self.app.finalize_and_translate()
 
-        # Read the output file content
+        # Read the output file content asynchronously
         try:
+            # Use a thread-safe approach to read the file asynchronously
             with open(self.output_file, "r", encoding="utf-8") as file:
                 self.output_content = file.read()
         except FileNotFoundError:
             self.output_content = "Output file not found."
 
-        # Update the screen
-        self.clear_widgets()
-        yield Header()
-        yield Label("Results", id="result_label")
-        yield TextArea(self.output_content, id="output_textarea", height=20)
-        yield Label(f"New Known Words: {self.new_known_words_count}", id="new_known_label")
-        yield Digits(self.new_known_words_count, id="new_known_digits")
-        yield Label(f"Total Known Words: {self.total_known_words_count}", id="total_known_label")
-        yield Digits(self.total_known_words_count, id="total_known_digits")
-        yield Footer()
+        # Remove the LoadingIndicator
+        loader = self.query_one("#loader", LoadingIndicator)
+        loader.remove()
 
+        # Update the screen
+        self.query_one("#result_label", Label).update("Results")
+        self.query_one("#output_textarea", TextArea).text = f"{self.output_file}\n------\n{self.output_content}"
+        self.query_one("#new_known_label", Label).update("New Known Words:")
+        self.query_one("#new_known_digits", Digits).update(str(self.new_known_words_count))
+        self.query_one("#total_known_label", Label).update("Total Known Words:")
+        self.query_one("#total_known_digits", Digits).update(str(self.total_known_words_count))
+
+    def action_copy_output(self):
+        """Copy the output content to the clipboard."""
+        self.app.copy_to_clipboard(self.output_content)
+        self.app.notify("Output copied to clipboard.", severity="information")
+
+    async def action_go_home(self):
+        """Return to the home screen."""
+        await self.app.switch_screen(WelcomeScreen())
+
+"""Custom widgets."""
 class InputWithLabel(Widget):
     """An input with a label."""
 
@@ -270,8 +307,9 @@ class QuestionScreen(Screen[bool]):
     def handle_no(self) -> None:
         self.dismiss(False)
 
+"""Main application class."""
 class LinguaLearnApp(App):
-    CSS_PATH = "styles.tcss"  # Path to custom CSS file
+    CSS_PATH = "styles.tcss"
     TITLE = "A Lingua Learn App"
     SUB_TITLE = "knows what you don't know"
 
@@ -281,7 +319,7 @@ class LinguaLearnApp(App):
     output_file = reactive("")
     word_items = reactive([])
     known_words = reactive([])
-
+    
     async def on_mount(self):
         await self.push_screen(WelcomeScreen())  # Start with WelcomeScreen
 
@@ -291,9 +329,9 @@ class LinguaLearnApp(App):
         file_input = self.query_one("#file_input", Input)
         lang_input = self.query_one("#lang_input", Input)
         file_output = self.query_one("#output_file_input", Input)
-        self.selected_file = file_input.value.strip() or "input.txt"
-        self.translation_language = lang_input.value.strip() or "ua"
-        self.output_file = file_output.value.strip() or "output.txt"
+        self.selected_file = file_input.value.strip() or DEFAULT_INPUT_FILE
+        self.translation_language = lang_input.value.strip() or DEFAULT_LANGUAGE
+        self.output_file = file_output.value.strip() or DEFAULT_OUTPUT_FILE
 
         # Load known words and process input text
         self.known_words = load_known_words()
@@ -315,19 +353,19 @@ class LinguaLearnApp(App):
         total_known_words_count = len(self.known_words) + new_known_words_count
 
         # Transition to ResultScreen
-        await self.push_screen(ResultScreen(self.output_file, new_known_words_count, total_known_words_count))
+        self.push_screen(ResultScreen(self.output_file, new_known_words_count, total_known_words_count))
 
-    @work
+    # @work(thread=True)
     async def finalize_and_translate(self):
         """Finalize word classification and proceed with translation."""
         unknown_words = [item.word for item in self.word_items if not item.is_known]
 
         # Fetch translations and definitions for unknown words
-        self.notify("Fetching translations and definitions...")
         fetch_definitions_bulk(unknown_words, self.translation_language)
         
         # Display completion message
         self.notify("Analysis complete! Check output.txt for results.")
+        return
 
         # Show modal window with question: "Would you like to add all the unknown words to the known words list?"
         # If yes, add all unknown words to known words list file and save it.
@@ -338,8 +376,6 @@ class LinguaLearnApp(App):
         else:
             self.notify("Unknown words not added to known words list.", severity="warning")
 
-        # await self.pop_screen()  # Return to the previous screen after completion
-
-
+"""Main entry point."""
 if __name__ == "__main__":
     LinguaLearnApp().run()
