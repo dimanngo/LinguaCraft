@@ -1,10 +1,13 @@
 from openai import OpenAI
+from deep_translator import GoogleTranslator
 import requests
 import os
 
 # Set up API keys
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GOOGLE_TRANSLATE_API_KEY = os.getenv("GOOGLE_TRANSLATE_API_KEY")
+MICROSOFT_TRANSLATOR_API_KEY = os.getenv("MICROSOFT_TRANSLATOR_API_KEY")
+MICROSOFT_TRANSLATOR_ENDPOINT = os.getenv("MICROSOFT_TRANSLATOR_ENDPOINT")
 
 # Configure OpenAI API
 OpenAI.api_key = OPENAI_API_KEY
@@ -12,10 +15,6 @@ OpenAI.api_key = OPENAI_API_KEY
 def get_definition(word):
     """
     Fetches the definition of a word using the OpenAI API.
-    Args:
-        word (str): The word to define.
-    Returns:
-        str: The definition of the word.
     """
     prompt = f"Provide a clear, concise dictionary definition for the word '{word}'."
     try:
@@ -34,14 +33,10 @@ def get_definition(word):
         print(f"Error fetching definition for '{word}': {e}")
         return "Definition not available"
 
-def translate_word(word, target_language):
+
+def translate_word_google(word, target_language):
     """
     Translates a word into the target language using the Google Translate API.
-    Args:
-        word (str): The word to translate.
-        target_language (str): The language code for the target language (e.g., 'es' for Spanish).
-    Returns:
-        str: The translated word.
     """
     url = "https://translation.googleapis.com/language/translate/v2"
     params = {
@@ -49,30 +44,70 @@ def translate_word(word, target_language):
         "target": target_language,
         "key": GOOGLE_TRANSLATE_API_KEY,
     }
-    # TODO: Tempprary return random text
-    return "dummy translation"
-    
     try:
         response = requests.get(url, params=params)
         response_data = response.json()
         return response_data["data"]["translations"][0]["translatedText"]
     except Exception as e:
-        print(f"Error translating word '{word}': {e}")
+        print(f"Error translating word '{word}' using Google Translate: {e}")
         return "Translation not available"
 
-def fetch_translation(unknown_words, target_language):
+
+def translate_word_microsoft(word, target_language):
+    """
+    Translates a word into the target language using the Microsoft Translator API.
+    """
+    url = f"{MICROSOFT_TRANSLATOR_ENDPOINT}/translate"
+    headers = {
+        "Ocp-Apim-Subscription-Key": MICROSOFT_TRANSLATOR_API_KEY,
+        "Ocp-Apim-Subscription-Region": "global",
+        "Content-Type": "application/json",
+    }
+    body = [{"Text": word}]
+    params = {"to": target_language}
+    try:
+        response = requests.post(url, headers=headers, json=body, params=params)
+        response_data = response.json()
+        return response_data[0]["translations"][0]["text"]
+    except Exception as e:
+        print(f"Error translating word '{word}' using Microsoft Translator: {e}")
+        return "Translation not available"
+
+
+def translate_word_deep(word, target_language):
+    """
+    Translates a word into the target language using Deep Translator.
+    Supported providers: 'google', 'microsoft'.
+    """
+    try:
+        return GoogleTranslator(target=target_language).translate(word)
+    except Exception as e:
+        print(f"Error translating word '{word}' using Deep Translator (Google): {e}")
+        return "Translation not available"
+
+
+def translate_word(word, target_language, provider="deep-google"):
+    """
+    Translates a word into the target language using the specified provider.
+    """
+    if provider == "google":
+        return translate_word_google(word, target_language)
+    elif provider == "microsoft":
+        return translate_word_microsoft(word, target_language)
+    elif provider == "deep-google":
+        return translate_word_deep(word, target_language)
+    else:
+        raise ValueError("Unsupported translation provider. Use 'google', 'microsoft', or 'deep-google'.")
+
+
+def fetch_translation(unknown_words, target_language, provider="deep-google"):
     """
     Fetches definitions and translations for a list of unknown words.
-    Args:
-        unknown_words (list): List of words to translate and define.
-        target_language (str): The language code for the target language (default is 'ua').
-    Returns:
-        dict: A dictionary where each word maps to its definition and translation.
     """
     translations = {}
     for word in unknown_words:
         definition = get_definition(word)
-        translation = translate_word(word, target_language)
+        translation = translate_word(word, target_language, provider=provider)
         translations[word] = {
             "definition": definition,
             "translation": translation,
@@ -81,23 +116,17 @@ def fetch_translation(unknown_words, target_language):
     save_translations_to_file(translations)
     return translations
 
+
 def save_translations_to_file(translations, filename="output.txt"):
     """
     Saves translations and definitions to a file.
-    Args:
-        translations (dict): Dictionary with words, their definitions, and translations.
-        filename (str): The file name for saving the output.
     """
-    # Build the content string all at once
     content = []
     for word, info in translations.items():
         content.append(f"Word: {word}")
         content.append(f"Definition: {info['definition']}")
         content.append(f"Translation: {info['translation']}\n")
     content_str = "\n".join(content)
-
-    # Write the content to the file in a single operation
     with open(filename, "w", encoding="utf-8") as file:
         file.write(content_str)
-    
     print(f"Translations saved to {filename}")

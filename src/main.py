@@ -1,7 +1,6 @@
 # Import necessary modules from Textual library
-import asyncio
 from rich.markdown import Markdown
-from textual import on
+from textual import on, work
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Grid, Vertical
 from textual.reactive import reactive
@@ -11,15 +10,16 @@ from textual.widgets import Header, Footer, Input, Button, Static, Label, DataTa
 from textual.widgets._button import Button
 from textual.widgets._static import Static
 
+
 # Import custom modules for text processing, known words management, and translation
 from known_words import load_known_words, update_known_words # Manages known words persistence
 from text_processing import process_text  # Custom file with text processing functions
-from translation import fetch_translation, translate_word  # Manages API calls for translations
+from translation import translate_word  # Manages API calls for translations
 from translation_bulk import fetch_definitions_bulk  # Manages Open API calls for definitions and translations
 
 # constants
 DEFAULT_INPUT_FILE = "input.txt"
-DEFAULT_LANGUAGE = "ua"
+DEFAULT_LANGUAGE = "uk"
 DEFAULT_OUTPUT_FILE = "output.txt"
 
 # Screen 1: Welcome Screen
@@ -75,6 +75,9 @@ Whether you’re preparing for exams, translating documents, or simply expanding
 
 # screen 2: input fields
 class InputScreen(Screen):
+    def __init__(self):
+        super().__init__()
+
     def compose(self) -> ComposeResult:
         yield Header()
 
@@ -84,17 +87,16 @@ class InputScreen(Screen):
             InputWithLabel("Native language code:", f"Default is '{DEFAULT_LANGUAGE}'", "lang_input"),
             InputWithLabel("Output file path:", f"Enter output file path here, default value is '{DEFAULT_OUTPUT_FILE}'", "output_file_input")
         )
-
         yield Button("Run Analysis", id="run_analysis_button", variant="primary")
-        
         yield Footer()
 
     def on_mount(self) -> None:
-        self.app.sub_title = "give your text"
+        self.app.sub_title = "enter the input data"
 
     async def on_button_pressed(self, event):
         if event.button.id == "run_analysis_button":
             await self.app.run_analysis()
+
 class WordItem:
     """Represents a word with a known/unknown status."""
     def __init__(self, word):
@@ -120,12 +122,15 @@ class WordListScreen(Screen):
         ("k", "mark_known", "Mark as Known"),
         ("u", "mark_unknown", "Mark as Unknown"),
         ('space', 'get_translation', 'Get Translation'),
+        ("h", "go_home", "Go Home"),
+        ("s", "start_over", "Start Over (Go to Input Screen)"),
     ]
 
     def __init__(self, word_items, translation_language):
         super().__init__()
         # Initialize WordItem instances and DataTable
-        self.word_items = [WordItem(word.word) for word in word_items]
+        # self.word_items_edit = [WordItem(word.word) for word in word_items]
+        self.word_items_edit = word_items
         self.translation_language = translation_language
 
     def compose(self) -> ComposeResult:
@@ -154,7 +159,7 @@ class WordListScreen(Screen):
         table.add_columns("ID", "Word", "Status", "Translation")
 
         # Add rows with explicit row keys based on index
-        for index, item in enumerate(self.word_items):
+        for index, item in enumerate(self.word_items_edit):
             row_data = (index, item.word, item.display_status(), item.translation)
             table.add_row(*row_data) # Use index as row key
 
@@ -172,7 +177,7 @@ class WordListScreen(Screen):
         
         # Get the current cursor row index
         cursor_row = table.cursor_coordinate[0]  # Row index
-        word_item = self.word_items[cursor_row]  # Access WordItem directly by row index
+        word_item = self.word_items_edit[cursor_row]  # Access WordItem directly by row index
 
         # Fetch the translation for the selected word
         translation = translate_word(word_item.word, self.translation_language)
@@ -195,7 +200,7 @@ class WordListScreen(Screen):
 
         # Get the current row index from the cursor
         cursor_row = table.cursor_coordinate[0]  # Row index
-        word_item = self.word_items[cursor_row]  # Access WordItem directly by row index
+        word_item = self.word_items_edit[cursor_row]  # Access WordItem directly by row index
         word_item.toggle_status(known=known)
 
         # Move cursor to the "Status" column to get correct cell keys
@@ -205,12 +210,21 @@ class WordListScreen(Screen):
         # Update the "Status" cell with the new status label
         table.update_cell(row_key, col_key, word_item.display_status())
 
+    async def action_go_home(self):
+        """Return to the home screen."""
+        await self.app.switch_screen(WelcomeScreen())
+
+    async def action_start_over(self):
+        """Return to the input screen."""
+        await self.app.switch_screen(InputScreen())
+
 # screen 4: results
 class ResultScreen(Screen):
     """Screen to show results of the analysis."""
     BINDINGS = [
         ("c", "copy_output", "Copy Output"),
         ("h", "go_home", "Go Home"),
+        ("s", "start_over", "Start Over (Go to Input Screen)"),
     ]
 
     # Reactive properties to update results dynamically
@@ -218,13 +232,15 @@ class ResultScreen(Screen):
     new_known_words_count = reactive(0)
     total_known_words_count = reactive(0)
 
-    def __init__(self, output_file, new_known_words_count, total_known_words_count):
+    def __init__(self, output_file, new_known_words_count, total_known_words_count, unknown_words_count):
         super().__init__()
         self.output_file = output_file
         self.new_known_words_count = new_known_words_count
         self.total_known_words_count = total_known_words_count
+        self.unknown_words_count = unknown_words_count
 
     def compose(self) -> ComposeResult:
+        yield Header()
         yield LoadingIndicator(id="loader")
         yield Label("fsdfdsfdsfsd", id="result_label")
         yield TextArea(id="output_textarea", read_only=True)
@@ -233,6 +249,8 @@ class ResultScreen(Screen):
             Digits(id="new_known_digits"),
             Label(id="total_known_label"),
             Digits(id="total_known_digits"),
+            Label(id="unknown_words_label"),
+            Digits(id="unknown_words_digits"),
             id="known_words_info"
         )
         yield Footer()
@@ -263,6 +281,8 @@ class ResultScreen(Screen):
         self.query_one("#new_known_digits", Digits).update(str(self.new_known_words_count))
         self.query_one("#total_known_label", Label).update("Total Known Words:")
         self.query_one("#total_known_digits", Digits).update(str(self.total_known_words_count))
+        self.query_one("#unknown_words_label", Label).update("Unknown Words:")
+        self.query_one("#unknown_words_digits", Digits).update(str(self.unknown_words_count))
 
     def action_copy_output(self):
         """Copy the output content to the clipboard."""
@@ -272,6 +292,10 @@ class ResultScreen(Screen):
     async def action_go_home(self):
         """Return to the home screen."""
         await self.app.switch_screen(WelcomeScreen())
+
+    async def action_start_over(self):
+        """Return to the input screen."""
+        await self.app.switch_screen(InputScreen())
 
 """Custom widgets."""
 class InputWithLabel(Widget):
@@ -313,12 +337,16 @@ class LinguaLearnApp(App):
     TITLE = "A Lingua Learn App"
     SUB_TITLE = "knows what you don't know"
 
+    # User Input
     # TODO: add reactive property for source type: file or url
     selected_file = reactive("")
     translation_language = reactive("")
     output_file = reactive("")
-    word_items = reactive([])
-    known_words = reactive([])
+
+    # Calculated properties
+    word_items = reactive([]) # All potential unknown words to be processed (loaded from text file or URL)
+    known_words = reactive([]) # ALready known words (loaded from file)
+    unknown_words = reactive([]) # Words to be translated and defined
     
     async def on_mount(self):
         await self.push_screen(WelcomeScreen())  # Start with WelcomeScreen
@@ -339,42 +367,46 @@ class LinguaLearnApp(App):
             self.notify("Please enter a valid file path.", severity="error")
             return
 
-        unknown_words = process_text(self.selected_file, self.known_words)
+        unknown_words_estimated = process_text(self.selected_file, self.known_words)
         
         # Generate WordItem objects for each unknown word
-        self.word_items = [WordItem(word) for word in unknown_words]
+        self.word_items = [WordItem(word) for word in unknown_words_estimated]
         
         # Transition to WordListScreen
         await self.push_screen(WordListScreen(self.word_items, self.translation_language))
     
     async def run_processing(self):
         """Run the obtaining of definition and translation of unknown words."""
-        new_known_words_count = len([item for item in self.word_items if item.is_known])
-        total_known_words_count = len(self.known_words) + new_known_words_count
 
+        known_words_new = [item.word for item in self.word_items if item.is_known]
+        known_words_new_count = len(known_words_new)
+        if known_words_new_count > 0:
+            update_known_words(known_words_new)
+            self.notify(f"Added {known_words_new_count} new known words to the list.", severity="information")
+
+        total_known_words_count = len(self.known_words) + known_words_new_count
+
+        self.unknown_words = [item.word for item in self.word_items if not item.is_known]
+        unknown_words_count = len(self.unknown_words)
+
+        if unknown_words_count == 0:
+            self.notify("No unknown words to process.", severity="information")
+            return
+        
         # Transition to ResultScreen
-        self.push_screen(ResultScreen(self.output_file, new_known_words_count, total_known_words_count))
+        self.push_screen(ResultScreen(self.output_file, known_words_new_count, total_known_words_count, unknown_words_count))
 
-    # @work(thread=True)
     async def finalize_and_translate(self):
         """Finalize word classification and proceed with translation."""
-        unknown_words = [item.word for item in self.word_items if not item.is_known]
-
         # Fetch translations and definitions for unknown words
-        fetch_definitions_bulk(unknown_words, self.translation_language)
-        
+        fetch_definitions_bulk(self.unknown_words, self.translation_language)
+
+        # Add unknown words to the known words list
+        update_known_words(self.unknown_words)
+        self.notify("All unknown words added to known words list.", severity="information")
+
         # Display completion message
         self.notify("Analysis complete! Check output.txt for results.")
-        return
-
-        # Show modal window with question: "Would you like to add all the unknown words to the known words list?"
-        # If yes, add all unknown words to known words list file and save it.
-        # If no, do nothing
-        if await self.push_screen_wait(QuestionScreen("Would you like to add all the unknown words to the known words list?")):
-            update_known_words(self.unknown_words)
-            self.notify("All unknown words added to known words list.", severity="information")
-        else:
-            self.notify("Unknown words not added to known words list.", severity="warning")
 
 """Main entry point."""
 if __name__ == "__main__":

@@ -29,12 +29,7 @@ def get_definition_bulk(words, target_language):
     Returns:
         llm_response (str): The response from the OpenAI API, formatted as a list of words and their definitions.
     """
-
-    # add pause for 3 seconds
-    time.sleep(3)
-    # TODO: Temporary return random text
-    return "dummy text"
-
+    
     prompt = f"Provide clear, concise dictionary definitions and translations into '{target_language}' for the following words:\n"
     prompt += "\n".join(words)
     prompt += "\n\nFormat the response as 'word:\tdefinition; translation'."

@@ -4,3 +4,4 @@ python-dotenv
 requests
 spacy
 textual
+deep-translator
