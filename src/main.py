@@ -58,9 +58,9 @@ Whether you’re preparing for exams, translating documents, or simply expanding
                         classes="ascii left-column",
                     ),
                     Static("Copyright 2024 Dmytro Golodiuk"),
-                    Static("[bold]Raise an Issue:[/] https://github.com/.../issues"),
-                    Static("[bold]Release Notes:[/] https://github.com/.../releases"),
-                    Static("[bold magenta]Become a sponsor:[/] https://github.com/sponsors/...")
+                    Static("[bold]Raise an Issue:[/] https://github.com/dimanngo/LinguaCraft/issues"),
+                    Static("[bold]Release Notes:[/] https://github.com/dimanngo/LinguaCraft/releases"),
+                    # Static("[bold magenta]Become a sponsor:[/] https://github.com/sponsors/...")
                 ),
                 Static(Markdown(self.WELCOME_MD)),
                 id="welcome_grid"
