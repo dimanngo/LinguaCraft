@@ -1,7 +1,10 @@
+build
+deep-translator
 nltk
 openai
 python-dotenv
 requests
 spacy
 textual
-deep-translator
+twine
+wheel
