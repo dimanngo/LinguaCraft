@@ -1,4 +1,5 @@
 # Import necessary modules from Textual library
+import os
 from rich.markdown import Markdown
 from textual import on, work
 from textual.app import App, ComposeResult
@@ -10,12 +11,11 @@ from textual.widgets import Header, Footer, Input, Button, Static, Label, DataTa
 from textual.widgets._button import Button
 from textual.widgets._static import Static
 
-
 # Import custom modules for text processing, known words management, and translation
-from known_words import load_known_words, update_known_words # Manages known words persistence
-from text_processing import process_text  # Custom file with text processing functions
-from translation import translate_word  # Manages API calls for translations
-from translation_bulk import fetch_definitions_bulk  # Manages Open API calls for definitions and translations
+from linguacraft.known_words import load_known_words, update_known_words # Manages known words persistence
+from linguacraft.text_processing import process_text  # Custom file with text processing functions
+from linguacraft.translation import translate_word  # Manages API calls for translations
+from linguacraft.translation_bulk import fetch_definitions_bulk  # Manages Open API calls for definitions and translations
 
 # constants
 DEFAULT_INPUT_FILE = "input.txt"
@@ -60,7 +60,7 @@ Whether you’re preparing for exams, translating documents, or simply expanding
                     Static("Copyright 2024 Dmytro Golodiuk"),
                     Static("[bold]Raise an Issue:[/] https://github.com/dimanngo/LinguaCraft/issues"),
                     Static("[bold]Release Notes:[/] https://github.com/dimanngo/LinguaCraft/releases"),
-                    # Static("[bold magenta]Become a sponsor:[/] https://github.com/sponsors/...")
+                    # Static("[bold magenta]Become a sponsor:[/] https://github.com/sponsors/..."),
                 ),
                 Static(Markdown(self.WELCOME_MD)),
                 id="welcome_grid"
@@ -363,7 +363,7 @@ class LinguaLearnApp(App):
 
         # Load known words and process input text
         self.known_words = load_known_words()
-        if not self.selected_file:
+        if not self.selected_file or not os.path.isfile(self.selected_file):
             self.notify("Please enter a valid file path.", severity="error")
             return
 
@@ -408,6 +408,10 @@ class LinguaLearnApp(App):
         # Display completion message
         self.notify("Analysis complete! Check output.txt for results.")
 
+def main():
+    """Main entry point for LinguaCraft."""
+    LinguaLearnApp().run()
+
 """Main entry point."""
 if __name__ == "__main__":
-    LinguaLearnApp().run()
+    main()

@@ -4,9 +4,17 @@ import re
 import spacy
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
+from spacy.cli import download
 
 # Load the spaCy model for lemmatization
-nlp = spacy.load("en_core_web_sm")
+def ensure_spacy_model(model_name="en_core_web_sm"):
+    """Ensure the required spaCy model is downloaded."""
+    download(model_name)
+    nlp = spacy.load("en_core_web_sm")
+    return nlp
+
+# Load the spaCy model for lemmatization    
+nlp = ensure_spacy_model()
 
 import ssl
 from urllib import request
