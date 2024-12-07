@@ -6,6 +6,8 @@
 
 > “LinguaCraft: Use it before you read to uncover unfamiliar words effortlessly.”
 
+# About
+
 Your personalized companion for mastering foreign languages with confidence! This program helps you analyze texts, identify unfamiliar words, and prepare them for learning. With LinguaCraft, you can:
 
 - Effortlessly process texts (from files or URLs) to detect unknown words.
