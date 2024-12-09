@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='LinguaCraft',  # Project name
-    version='0.1.2',    # Initial version
+    version='0.1.3',    # Initial version
     author='Dmytro Golodiuk',  # Your name
     author_email='info@golodiuk.com',  # Your email
     description='A personalized companion for mastering foreign languages.',  # Short description
@@ -21,8 +21,10 @@ setup(
     python_requires='>=3.6',  # Minimum Python version
     install_requires=[
         'deep-translator',  # Required for translation functionality
+        'langdetect',  # Required for language detection
         'nltk',  # Required for natural language processing
         'openai',  # Required for OpenAI API calls
+        'python-dotenv',  # Required for environment variables
         'requests',  # Required for HTTP requests
         'rich',  # Required for rich text formatting
         'spacy',  # Required for lemmatization

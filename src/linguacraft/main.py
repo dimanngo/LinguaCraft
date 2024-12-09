@@ -1,5 +1,6 @@
 # Import necessary modules from Textual library
 import os
+import logging
 from rich.markdown import Markdown
 from textual import on, work
 from textual.app import App, ComposeResult
@@ -21,6 +22,16 @@ from linguacraft.translation_bulk import fetch_definitions_bulk  # Manages Open 
 DEFAULT_INPUT_FILE = "input.txt"
 DEFAULT_LANGUAGE = "uk"
 DEFAULT_OUTPUT_FILE = "output.txt"
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("app.log"),
+        logging.StreamHandler()
+    ]
+)
 
 # Screen 1: Welcome Screen
 class WelcomeScreen(Screen):

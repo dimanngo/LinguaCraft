@@ -1,6 +1,4 @@
-# PREREQUISITE: python -m spacy download en_core_web_sm
-
-import re
+import logging
 import spacy
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
@@ -22,27 +20,75 @@ nltk.download("stopwords")
 SPACY_MODELS = {
     "en": "en_core_web_sm",
     "uk": "uk_core_news_sm",
-    # Add more languages as needed
-}
+    "af": "af_core_news_sm",
+    "bg": "bg_core_news_sm",
+    "bn": "bn_core_news_sm",
+    "ca": "ca_core_news_sm",
+    "cs": "cs_core_news_sm",
+    "da": "da_core_news_sm",
+    "de": "de_core_news_sm",
+    "el": "el_core_news_sm",
+    "es": "es_core_news_sm",
+    "et": "et_core_news_sm",
+    "fa": "fa_core_news_sm",
+    "fi": "fi_core_news_sm",
+    "fr": "fr_core_news_sm",
+    "ga": "ga_core_news_sm",
+    "he": "he_core_news_sm",
+    "hi": "hi_core_news_sm",
+    "hr": "hr_core_news_sm",
+    "hu": "hu_core_news_sm",
+    "id": "id_core_news_sm",
+    "it": "it_core_news_sm",
+    "ja": "ja_core_news_sm",
+    "ko": "ko_core_news_sm",
+    "lt": "lt_core_news_sm",
+    "lv": "lv_core_news_sm",
+    "mk": "mk_core_news_sm",
+    "nb": "nb_core_news_sm",
+    "nl": "nl_core_news_sm",
+    "pl": "pl_core_news_sm",
+    "pt": "pt_core_news_sm",
+    "ro": "ro_core_news_sm",
+    "ru": "ru_core_news_sm",
+    "sk": "sk_core_news_sm",
+    "sl": "sl_core_news_sm",
+    "sv": "sv_core_news_sm",
+    "ta": "ta_core_news_sm",
+    "th": "th_core_news_sm",
+    "tl": "tl_core_news_sm",
+    "tr": "tr_core_news_sm",
+    "uk": "uk_core_news_sm",
+    "ur": "ur_core_news_sm",
+    "vi": "vi_core_news_sm",
+    "zh": "zh_core_news_sm",
+    }
 
 # Predefined dictionary mapping language codes to NLTK stopwords languages
 LANGUAGE_MAP = {
-    "en": "english",
     "ar": "arabic",
+    "az": "azerbaijani",
     "da": "danish",
-    "nl": "dutch",
+    "de": "german",
+    "el": "greek",
+    "en": "english",
+    "es": "spanish",
     "fi": "finnish",
     "fr": "french",
-    "de": "german",
     "hu": "hungarian",
+    "id": "indonesian",
     "it": "italian",
+    "kk": "kazakh",
+    "ne": "nepali",
+    "nl": "dutch",
     "no": "norwegian",
     "pt": "portuguese",
     "ro": "romanian",
     "ru": "russian",
-    "es": "spanish",
+    "sl": "slovene",
     "sv": "swedish",
-    # Add more mappings as needed if supported by NLTK
+    "tg": "tajik",
+    "tr": "turkish",
 }
 
 def detect_language(text):
@@ -50,17 +96,17 @@ def detect_language(text):
     try:
         return detect(text)
     except Exception as e:
-        print(f"Language detection failed: {e}")
+        logging.error(f"Language detection failed: {e}")
         return ""  # Default to empty string
 
 # Load the spaCy model for lemmaization
 def ensure_spacy_model(language):
     """Ensure the required spaCy model is downloaded."""
-    model_name = SPACY_MODELS.get(language, SPACY_MODELS["en"])
+    model_name = SPACY_MODELS.get(language)
     try:
         return spacy.load(model_name)
     except Exception as e:
-        print(f"Downloading SpaCy model '{model_name}'...")
+        logging.error(f"Downloading SpaCy model '{model_name}'...")
         download(model_name)
         return spacy.load(model_name)
 
@@ -76,7 +122,7 @@ def read_text_file(file_path):
         with open(file_path, "r", encoding="utf-8") as file:
             return file.read()
     except FileNotFoundError:
-        print(f"Error: The file at {file_path} was not found.")
+        logging.error(f"Error: The file at {file_path} was not found.")
         return ""
 
 def tokenize_text(text, language_code="en"):
@@ -96,15 +142,15 @@ def tokenize_text(text, language_code="en"):
 
 def get_stop_words(language_code="en"):
     """Retrieve stopwords set based on language code."""
-    language = LANGUAGE_MAP.get(language_code.lower(), language_code.lower())
-    
+    language = LANGUAGE_MAP.get(language_code.lower())
+
     try:
         return set(stopwords.words(language))
     except LookupError:
-        print(f"Stopwords for language code '{language_code}' not found. Using an empty set.")
+        logging.error(f"Stopwords for language code '{language_code}' not found. Using an empty set.")
         return set()
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        logging.error(f"An unexpected error occurred: {e}")
         return set()
     
 def normalize_words(tokens, language_code):

@@ -1,3 +1,4 @@
+import logging
 from openai import OpenAI
 from deep_translator import GoogleTranslator
 import requests
@@ -30,7 +31,7 @@ def get_definition(word):
         )
         return completion.choices[0].message.content.strip()
     except Exception as e:
-        print(f"Error fetching definition for '{word}': {e}")
+        logging.error(f"Error fetching definition for '{word}': {e}")
         return "Definition not available"
 
 
@@ -49,7 +50,7 @@ def translate_word_google(word, target_language):
         response_data = response.json()
         return response_data["data"]["translations"][0]["translatedText"]
     except Exception as e:
-        print(f"Error translating word '{word}' using Google Translate: {e}")
+        logging.error(f"Error translating word '{word}' using Google Translate: {e}")
         return "Translation not available"
 
 
@@ -70,7 +71,7 @@ def translate_word_microsoft(word, target_language):
         response_data = response.json()
         return response_data[0]["translations"][0]["text"]
     except Exception as e:
-        print(f"Error translating word '{word}' using Microsoft Translator: {e}")
+        logging.error(f"Error translating word '{word}' using Microsoft Translator: {e}")
         return "Translation not available"
 
 
@@ -82,7 +83,7 @@ def translate_word_deep(word, target_language):
     try:
         return GoogleTranslator(target=target_language).translate(word)
     except Exception as e:
-        print(f"Error translating word '{word}' using Deep Translator (Google): {e}")
+        logging.error(f"Error translating word '{word}' using Deep Translator (Google): {e}")
         return "Translation not available"
 
 
@@ -112,7 +113,7 @@ def fetch_translation(unknown_words, target_language, provider="deep-google"):
             "definition": definition,
             "translation": translation,
         }
-        print(f"Processed '{word}': Definition - '{definition}', Translation - '{translation}'")
+        logging.info(f"Processed '{word}': Definition - '{definition}', Translation - '{translation}'")
     save_translations_to_file(translations)
     return translations
 
@@ -129,4 +130,4 @@ def save_translations_to_file(translations, filename="output.txt"):
     content_str = "\n".join(content)
     with open(filename, "w", encoding="utf-8") as file:
         file.write(content_str)
-    print(f"Translations saved to {filename}")
+    logging.info(f"Translations saved to {filename}")

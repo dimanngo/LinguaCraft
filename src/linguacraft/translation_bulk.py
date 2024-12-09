@@ -1,3 +1,4 @@
+import logging
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
@@ -47,6 +48,7 @@ def get_definition_bulk(words, input_language, target_language):
         llm_response = completion.choices[0].message.content.strip()
         return llm_response
     except Exception as e:
+        logging.error(f"Error fetching definitions and translations: {e}")
         return(f"Error fetching definitions and translations: {e}")
 
 def save_output_file(definitions, filename="output.txt"):
@@ -58,4 +60,4 @@ def save_output_file(definitions, filename="output.txt"):
     """
     with open(filename, "w", encoding="utf-8") as file:
         file.write(definitions)
-    print(f"Definitions saved to {filename}")
+    logging.info(f"Definitions saved to {filename}")
