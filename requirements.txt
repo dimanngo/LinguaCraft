@@ -1,5 +1,6 @@
 build
 deep-translator
+langdetect
 nltk
 openai
 python-dotenv

@@ -13,7 +13,7 @@ from textual.widgets._static import Static
 
 # Import custom modules for text processing, known words management, and translation
 from linguacraft.known_words import load_known_words, update_known_words # Manages known words persistence
-from linguacraft.text_processing import process_text  # Custom file with text processing functions
+from linguacraft.text_processing import detect_language, process_text, read_text_file  # Custom file with text processing functions
 from linguacraft.translation import translate_word  # Manages API calls for translations
 from linguacraft.translation_bulk import fetch_definitions_bulk  # Manages Open API calls for definitions and translations
 
@@ -126,15 +126,17 @@ class WordListScreen(Screen):
         ("s", "start_over", "Start Over (Go to Input Screen)"),
     ]
 
-    def __init__(self, word_items, translation_language):
+    def __init__(self, word_items, translation_language, detected_language):
         super().__init__()
         # Initialize WordItem instances and DataTable
         # self.word_items_edit = [WordItem(word.word) for word in word_items]
         self.word_items_edit = word_items
         self.translation_language = translation_language
+        self.detected_language = detected_language
 
     def compose(self) -> ComposeResult:
         yield Header()
+        yield Label(f"Detected Language: {self.detected_language}")
         yield Container(
             Label("Unknown Words for Classification:"),
             DataTable(id="word_table")
@@ -358,22 +360,27 @@ class LinguaLearnApp(App):
         lang_input = self.query_one("#lang_input", Input)
         file_output = self.query_one("#output_file_input", Input)
         self.selected_file = file_input.value.strip() or DEFAULT_INPUT_FILE
+        self.detected_language = ""
         self.translation_language = lang_input.value.strip() or DEFAULT_LANGUAGE
         self.output_file = file_output.value.strip() or DEFAULT_OUTPUT_FILE
 
-        # Load known words and process input text
-        self.known_words = load_known_words()
+        # Detect language
+        # read the text from the file self.selected_file
+        input_text = read_text_file(self.selected_file)
+        self.detected_language = detect_language(input_text)
+
+        # Load known words based on detected language
+        (self.known_words, _) = load_known_words(self.detected_language)
         if not self.selected_file or not os.path.isfile(self.selected_file):
             self.notify("Please enter a valid file path.", severity="error")
             return
 
-        unknown_words_estimated = process_text(self.selected_file, self.known_words)
-        
+        unknown_words_estimated = process_text(self.selected_file, self.known_words, self.detected_language)
         # Generate WordItem objects for each unknown word
         self.word_items = [WordItem(word) for word in unknown_words_estimated]
-        
+
         # Transition to WordListScreen
-        await self.push_screen(WordListScreen(self.word_items, self.translation_language))
+        await self.push_screen(WordListScreen(self.word_items, self.translation_language, self.detected_language))
     
     async def run_processing(self):
         """Run the obtaining of definition and translation of unknown words."""
@@ -381,7 +388,7 @@ class LinguaLearnApp(App):
         known_words_new = [item.word for item in self.word_items if item.is_known]
         known_words_new_count = len(known_words_new)
         if known_words_new_count > 0:
-            update_known_words(known_words_new)
+            update_known_words(known_words_new, self.detected_language)
             self.notify(f"Added {known_words_new_count} new known words to the list.", severity="information")
 
         total_known_words_count = len(self.known_words) + known_words_new_count
@@ -399,10 +406,10 @@ class LinguaLearnApp(App):
     async def finalize_and_translate(self):
         """Finalize word classification and proceed with translation."""
         # Fetch translations and definitions for unknown words
-        fetch_definitions_bulk(self.unknown_words, self.translation_language)
+        fetch_definitions_bulk(self.unknown_words, self.detected_language, self.translation_language)
 
         # Add unknown words to the known words list
-        update_known_words(self.unknown_words)
+        update_known_words(self.unknown_words, self.detected_language)
         self.notify("All unknown words added to known words list.", severity="information")
 
         # Display completion message
