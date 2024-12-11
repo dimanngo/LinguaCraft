@@ -1,0 +1,14 @@
+deep-translator
+langdetect
+nltk
+openai
+python-dotenv
+requests
+rich
+spacy
+textual
+
+# needed for distribution
+build
+twine
+wheel
