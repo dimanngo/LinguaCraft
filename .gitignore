@@ -7,7 +7,8 @@
 Icon
 
 # Text files
-*.txt
+*.log
+_debug/*.txt
 
 # Thumbnails
 ._*
